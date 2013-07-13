@@ -23,6 +23,7 @@ References:
 
 var fs = require('fs');
 var rest = require('restler');
+var sys = require('util')
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
@@ -35,15 +36,6 @@ var assertFileExists = function(infile) {
         process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
     }
     return instr;
-};
-
-var getURL = function(url) {
-   var contenido = "";
-   rest.get(url).on('complete', function(data) {
-   	contenido = data[0].message.toString(); 
-   };
-   console.log(contenido);
-   return contenido;
 };
 
 var cheerioHtmlFile = function(htmlfile) {
@@ -65,14 +57,16 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     return out;
 };
 var checkHtmlURL = function(url, checksfile) {
-   $ = cheerio.load(getURL(url));
-   var checks = loadChecks(checksfile).sort();
-   var out = {};
-   for(var ii in checks) {
-	var present = $(checks[ii]).length > 0;
-	out[checks[ii]] = present;
-   }
-   return out;
+   rest.get(url).on('complete',function(data) {
+   	$ = cheerio.load(data);
+   	var checks = loadChecks(checksfile).sort();
+   	var out = {};
+   	for(var ii in checks) {
+		var present = $(checks[ii]).length > 0;
+		out[checks[ii]] = present;
+   	}
+  	console.log(JSON.stringify(out, null, 4));
+   });
 };
    
 
@@ -88,9 +82,15 @@ if(require.main == module) {
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
  	.option('-u, --url <url_web>', 'Url to WEB') 
         .parse(process.argv);
-    var checkJson = (program.file.length > 0)? checkHtmlFile(program.file, program.checks): checksHtmlURL(program.url, program.checks;
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    if (( program.rawArgs.indexOf("-f") != 0 ) || ( program.rawArgs.indexOf("--file") != 0 )) {
+    	var checkJson = checkHtmlFile(program.file, program.checks);
+    	var outJson = JSON.stringify(checkJson, null, 4);
+    	console.log(outJson);
+    }
+    else {
+	checkHtmlURL(program.url, program.checks);
+    }
 } else {
+ 
     exports.checkHtmlFile = checkHtmlFile;
 }
